@@ -1,0 +1,45 @@
+react_frontend/
+│
+├── node_modules/
+├── public/                     # Static assets like favicon
+│
+├── src/
+│   ├── assets/                 # Global assets
+│   │   ├── images/
+│   │   └── styles/
+│   │       └── main.scss       # Global SCSS (Tailwind directives go here)
+│   │
+│   ├── components/             # Global/Shared UI components (Buttons, Modals, Navbar)
+│   │   └── ui/
+│   │
+│   ├── core/                   # Global configurations (Axios instances, auth context)
+│   │   └── api.ts              # Base API setup
+│   │
+│   ├── router/                 # Aggregates all module routes
+│   │   └── index.tsx           
+│   │
+│   ├── modules/                # 📍 YOUR MODULES (Features) LIVE HERE
+│   │   │
+│   │   ├── users/              # "Users" feature module
+│   │   │   ├── components/     # UI components specific ONLY to users
+│   │   │   ├── pages/          # Page-level components (UserList, UserProfile)
+│   │   │   ├── styles/
+│   │   │   │   └── users.module.scss # SCSS specific to this module
+│   │   │   ├── types.ts        # TypeScript interfaces for users
+│   │   │   ├── api.ts          # API calls for users (fetches from FastAPI)
+│   │   │   └── routes.tsx      # Routing configuration for this module
+│   │   │
+│   │   └── products/           # Another module example
+│   │       ├── pages/
+│   │       └── routes.tsx
+│   │
+│   ├── App.tsx                 # Root component provider
+│   ├── main.tsx                # React entry point
+│   └── vite-env.d.ts           # Vite TypeScript definitions
+│
+├── .env                        # Frontend environment variables
+├── index.html                  
+├── package.json                
+├── tailwind.config.js          # Tailwind configuration
+├── tsconfig.json               
+└── vite.config.ts
