@@ -15,6 +15,6 @@ export const calendarApi = {
 
   // Get tasks for a specific calendar day
   getTasksForDay: (date: string): Promise<Task[]> => {
-    return apiClient.get(`/calendar/day/${date}`);
+    return apiClient.get(`/calendar/day/${date}/strict`);
   },
 };

@@ -147,7 +147,7 @@ export const DayTasksModal: React.FC<DayTasksModalProps> = ({
       await tasksApi.updateTask(editingTask._id, {
         title: taskTitle.trim(),
         description: taskDesc.trim() || undefined,
-        date: dateStr,
+        date: editingTask.date,
       });
 
       setEditingTask(null);

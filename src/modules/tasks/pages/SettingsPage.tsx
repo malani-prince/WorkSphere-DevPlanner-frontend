@@ -1,14 +1,12 @@
 import React, { useEffect, useState } from 'react';
 import { Download, Settings, Loader2 } from 'lucide-react';
 import { tasksApi } from '../api';
+import { linksApi } from '../../links/api';
 import type { DashboardStats } from '../types';
 
 export const SettingsPage: React.FC = () => {
-  const [autoMigrationEnabled, setAutoMigrationEnabled] = useState(() => {
-    const saved = localStorage.getItem('devplanner_auto_migration');
-    return saved !== 'false';
-  });
   const [exportingLog, setExportingLog] = useState(false);
+  const [exportingLinks, setExportingLinks] = useState(false);
   const [stats, setStats] = useState<DashboardStats | null>(null);
 
   useEffect(() => {
@@ -23,12 +21,6 @@ export const SettingsPage: React.FC = () => {
     };
     loadStats();
   }, []);
-
-  const handleToggleMigration = () => {
-    const newValue = !autoMigrationEnabled;
-    setAutoMigrationEnabled(newValue);
-    localStorage.setItem('devplanner_auto_migration', String(newValue));
-  };
 
   const handleExportWorklog = async () => {
     setExportingLog(true);
@@ -58,6 +50,59 @@ export const SettingsPage: React.FC = () => {
     }
   };
 
+  const handleExportLinks = async () => {
+    setExportingLinks(true);
+    try {
+      // 1. Fetch categories
+      const categories = await linksApi.getCategories();
+      
+      // 2. Fetch links for each category in parallel
+      const categoriesWithLinks = await Promise.all(
+        categories.map(async (cat) => {
+          const links = await linksApi.getLinks(cat._id);
+          return { catName: cat.name, links };
+        })
+      );
+      
+      // 3. Generate CSV content
+      let csvContent = '\uFEFF'; // UTF-8 BOM for Excel compatibility
+      csvContent += 'Category,Title,Subtitle,URL,Notes,Created At\n';
+      
+      categoriesWithLinks.forEach(({ catName, links }) => {
+        links.forEach((link) => {
+          const row = [
+            catName,
+            link.title,
+            link.subtitle || '',
+            link.url,
+            link.notes || '',
+            link.created_at || ''
+          ].map(val => {
+            // Escape double quotes and wrap in quotes to prevent column splitting issues
+            const escaped = String(val).replace(/"/g, '""');
+            return `"${escaped}"`;
+          }).join(',');
+          csvContent += row + '\n';
+        });
+      });
+      
+      // 4. Download file
+      const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+      const url = URL.createObjectURL(blob);
+      const linkElement = document.createElement('a');
+      linkElement.href = url;
+      const todayStr = new Date().toLocaleDateString('en-CA');
+      linkElement.download = `DevPlanner_Links_${todayStr}.csv`;
+      document.body.appendChild(linkElement);
+      linkElement.click();
+      document.body.removeChild(linkElement);
+    } catch (err: any) {
+      alert(err.message || 'Failed to export links');
+    } finally {
+      setExportingLinks(false);
+    }
+  };
+
   return (
     <div className="space-y-6 animate-fade-in">
       {/* Header Card */}
@@ -78,33 +123,8 @@ export const SettingsPage: React.FC = () => {
         <h3 className="text-base font-bold text-slate-800 mb-4 font-medium">Planner Controls & Settings</h3>
         
         <div className="space-y-4">
-          {/* Setting 1: Migration */}
+          {/* Setting 1: Export JSON */}
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-4 border-b border-slate-100 last:border-0">
-            <div>
-              <div className="flex items-center gap-2">
-                <span className="text-sm font-semibold text-slate-800 font-medium">Automatic Task Migration Status</span>
-                <span className={`px-2 py-0.5 rounded text-[10px] font-bold ${
-                  autoMigrationEnabled ? 'bg-emerald-50 text-emerald-600' : 'bg-red-50 text-red-600'
-                }`}>
-                  {autoMigrationEnabled ? 'ACTIVE' : 'INACTIVE'}
-                </span>
-              </div>
-              <p className="text-xs text-slate-500 mt-0.5">Toggle whether pending developer tasks automatically roll over to the next day's backlog.</p>
-            </div>
-            <button 
-              onClick={handleToggleMigration}
-              className={`px-4 py-2 text-xs font-semibold rounded-lg shadow-sm transition-all shrink-0 ${
-                autoMigrationEnabled 
-                  ? 'bg-red-600 hover:bg-red-700 text-white' 
-                  : 'bg-emerald-600 hover:bg-emerald-700 text-white'
-              }`}
-            >
-              {autoMigrationEnabled ? 'Disable Migration' : 'Activate Migration'}
-            </button>
-          </div>
-
-          {/* Setting 2: Export */}
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 last:border-0 pt-1">
             <div>
               <span className="text-sm font-semibold text-slate-800 font-medium">Export Developer Daily Worklogs</span>
               <p className="text-xs text-slate-500 mt-0.5">Download a detailed JSON database backup containing all of today's tasks, notes, subtask trees, and statistics.</p>
@@ -112,10 +132,26 @@ export const SettingsPage: React.FC = () => {
             <button 
               onClick={handleExportWorklog}
               disabled={exportingLog}
-              className="flex items-center gap-1.5 px-4 py-2 bg-primary-600 text-white text-xs font-semibold rounded-lg hover:bg-primary-700 transition-colors shadow-sm shrink-0"
+              className="flex items-center gap-1.5 px-4 py-2 bg-primary-600 text-white text-xs font-semibold rounded-lg hover:bg-primary-700 transition-colors shadow-sm shrink-0 cursor-pointer"
             >
               {exportingLog ? <Loader2 size={14} className="animate-spin" /> : <Download size={14} />}
               <span>{exportingLog ? 'Exporting...' : 'Export JSON'}</span>
+            </button>
+          </div>
+
+          {/* Setting 2: Export Links to Excel/CSV */}
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 last:border-0 pt-1">
+            <div>
+              <span className="text-sm font-semibold text-slate-800 font-medium">Export Bookmarks (Excel/CSV)</span>
+              <p className="text-xs text-slate-500 mt-0.5">Download all of your bookmark categories and saved reference links in an Excel-compatible format.</p>
+            </div>
+            <button 
+              onClick={handleExportLinks}
+              disabled={exportingLinks}
+              className="flex items-center gap-1.5 px-4 py-2 bg-emerald-600 text-white text-xs font-semibold rounded-lg hover:bg-emerald-700 transition-colors shadow-sm shrink-0 cursor-pointer"
+            >
+              {exportingLinks ? <Loader2 size={14} className="animate-spin" /> : <Download size={14} />}
+              <span>{exportingLinks ? 'Exporting...' : 'Download Excel/CSV'}</span>
             </button>
           </div>
         </div>

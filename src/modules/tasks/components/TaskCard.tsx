@@ -221,7 +221,7 @@ export const TaskCard: React.FC<TaskCardProps> = ({
                 ) : (
                   <span 
                     onDoubleClick={() => startEditSubtask(subtask)}
-                    className={`text-sm cursor-text truncate select-none ${
+                    className={`text-sm cursor-text select-none break-words flex-1 ${
                       subtask.is_completed 
                         ? 'text-slate-400 line-through decoration-slate-200' 
                         : 'text-slate-650 hover:text-slate-900'

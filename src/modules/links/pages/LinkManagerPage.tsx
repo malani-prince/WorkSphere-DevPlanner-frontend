@@ -110,9 +110,15 @@ export const LinkManagerPage: React.FC = () => {
     try {
       const cats = await linksApi.getCategories();
       setCategories(cats);
-      if (cats.length > 0 && !selectedCat) {
-        // Default select first category
-        setSelectedCat(cats[0]);
+      if (cats.length > 0) {
+        const savedCatId = localStorage.getItem('devplanner_selected_link_category_id');
+        const found = cats.find(c => c._id === savedCatId);
+        if (found) {
+          setSelectedCat(found);
+        } else {
+          setSelectedCat(cats[0]);
+          localStorage.setItem('devplanner_selected_link_category_id', cats[0]._id);
+        }
       }
     } catch (err: any) {
       console.error(err);
@@ -175,6 +181,7 @@ export const LinkManagerPage: React.FC = () => {
         try {
           await linksApi.deleteCategory(cat._id);
           setSelectedCat(null);
+          localStorage.removeItem('devplanner_selected_link_category_id');
           await loadCategories();
         } catch (err: any) {
           showErrorAlert(err.message || 'Error deleting category');
@@ -191,6 +198,7 @@ export const LinkManagerPage: React.FC = () => {
       if (catModalMode === 'create') {
         const newCat = await linksApi.createCategory(catFormName.trim());
         setSelectedCat(newCat);
+        localStorage.setItem('devplanner_selected_link_category_id', newCat._id);
       } else if (catModalMode === 'rename' && selectedCat) {
         await linksApi.renameCategory(selectedCat._id, catFormName.trim());
       }
@@ -312,20 +320,23 @@ export const LinkManagerPage: React.FC = () => {
               return (
                 <div
                   key={cat._id}
-                  onClick={() => setSelectedCat(cat)}
+                  onClick={() => {
+                    setSelectedCat(cat);
+                    localStorage.setItem('devplanner_selected_link_category_id', cat._id);
+                  }}
                   className={`w-full flex items-center justify-between p-3 rounded-xl cursor-pointer transition-all duration-150 relative group ${
                     isSelected 
                       ? 'bg-primary-50/55 text-primary-700 font-semibold border-l-4 border-primary-500 pl-2' 
                       : 'text-slate-650 hover:bg-slate-50 hover:text-slate-900 border-l-4 border-transparent'
                   }`}
                 >
-                  <div className="flex items-center gap-2.5 truncate">
+                  <div className="flex items-start gap-2.5 flex-1 min-w-0">
                     {isSelected ? (
-                      <FolderOpen size={16} className="text-primary-550 shrink-0" />
+                      <FolderOpen size={16} className="text-primary-550 shrink-0 mt-0.5" />
                     ) : (
-                      <Folder size={16} className="text-slate-400 shrink-0" />
+                      <Folder size={16} className="text-slate-400 shrink-0 mt-0.5" />
                     )}
-                    <span className="truncate text-sm">{cat.name}</span>
+                    <span className="text-sm break-words flex-1">{cat.name}</span>
                   </div>
 
                   {/* Options bar, appears on hover */}

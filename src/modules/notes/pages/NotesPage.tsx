@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useRef } from 'react';
+import React, { useEffect, useState } from 'react';
 import { 
   Plus, 
   Trash2, 
@@ -13,7 +13,8 @@ import {
   ArrowUpDown,
   ChevronDown,
   Loader2,
-  Copy
+  Copy,
+  Save
 } from 'lucide-react';
 import { notesApi } from '../api';
 import type { NoteCategory, Note } from '../types';
@@ -25,6 +26,15 @@ export const NotesPage: React.FC = () => {
   const [selectedCat, setSelectedCat] = useState<NoteCategory | null>(null);
   const [notes, setNotes] = useState<Note[]>([]);
   const [selectedNote, setSelectedNote] = useState<Note | null>(null);
+  const [savingNote, setSavingNote] = useState(false);
+  const [toastMessage, setToastMessage] = useState<string | null>(null);
+
+  const showToast = (message: string) => {
+    setToastMessage(message);
+    setTimeout(() => {
+      setToastMessage((current) => current === message ? null : current);
+    }, 2500);
+  };
 
   // Loading & error states
   const [catLoading, setCatLoading] = useState(false);
@@ -69,15 +79,7 @@ export const NotesPage: React.FC = () => {
     });
   };
 
-  const showInfoAlert = (message: string) => {
-    setConfirmDialog({
-      isOpen: true,
-      title: 'Information',
-      message: message,
-      type: 'alert',
-      onConfirm: () => {},
-    });
-  };
+
 
   // Load categories on mount
   const loadCategories = async () => {
@@ -85,8 +87,15 @@ export const NotesPage: React.FC = () => {
     try {
       const cats = await notesApi.getCategories();
       setCategories(cats);
-      if (cats.length > 0 && !selectedCat) {
-        setSelectedCat(cats[0]);
+      if (cats.length > 0) {
+        const savedCatId = localStorage.getItem('devplanner_selected_note_category_id');
+        const found = cats.find(c => c._id === savedCatId);
+        if (found) {
+          setSelectedCat(found);
+        } else {
+          setSelectedCat(cats[0]);
+          localStorage.setItem('devplanner_selected_note_category_id', cats[0]._id);
+        }
       }
     } catch (err: any) {
       console.error(err);
@@ -110,19 +119,36 @@ export const NotesPage: React.FC = () => {
         params.search = searchQuery.trim();
       }
       const data = await notesApi.getNotes(selectedCat._id, params);
-      setNotes(data);
       
       // Auto-select first note if none selected or if selected note is not in new folder
       if (data.length > 0) {
-        const found = data.find(n => n._id === selectedNote?._id);
+        const savedNoteId = localStorage.getItem('devplanner_selected_note_id');
+        let found = data.find(n => n._id === savedNoteId || n._id === selectedNote?._id);
         if (!found) {
-          setSelectedNote(data[0]);
-        } else {
-          // Sync selected note content
-          setSelectedNote(found);
+          found = data[0];
         }
+        
+        const localContent = localStorage.getItem(`devplanner_unsaved_content_${found._id}`);
+        const localTitle = localStorage.getItem(`devplanner_unsaved_title_${found._id}`);
+        const mergedNote = {
+          ...found,
+          title: localTitle ?? found.title,
+          content: localContent ?? found.content
+        };
+
+        setSelectedNote(mergedNote);
+        localStorage.setItem('devplanner_selected_note_id', mergedNote._id);
+
+        const mappedData = data.map(n => ({
+          ...n,
+          title: localStorage.getItem(`devplanner_unsaved_title_${n._id}`) ?? n.title,
+          content: localStorage.getItem(`devplanner_unsaved_content_${n._id}`) ?? n.content
+        }));
+        setNotes(mappedData);
       } else {
         setSelectedNote(null);
+        localStorage.removeItem('devplanner_selected_note_id');
+        setNotes([]);
       }
     } catch (err: any) {
       console.error(err);
@@ -162,7 +188,9 @@ export const NotesPage: React.FC = () => {
         try {
           await notesApi.deleteCategory(cat._id);
           setSelectedCat(null);
+          localStorage.removeItem('devplanner_selected_note_category_id');
           setSelectedNote(null);
+          localStorage.removeItem('devplanner_selected_note_id');
           await loadCategories();
         } catch (err: any) {
           showErrorAlert(err.message || 'Failed to delete folder');
@@ -179,6 +207,7 @@ export const NotesPage: React.FC = () => {
       if (catModalMode === 'create') {
         const newCat = await notesApi.createCategory({ name: catFormName.trim() });
         setSelectedCat(newCat);
+        localStorage.setItem('devplanner_selected_note_category_id', newCat._id);
       } else if (catModalMode === 'rename' && selectedCat) {
         await notesApi.renameCategory(selectedCat._id, { name: catFormName.trim() });
       }
@@ -199,6 +228,7 @@ export const NotesPage: React.FC = () => {
       });
       await loadNotes(true);
       setSelectedNote(newNote);
+      localStorage.setItem('devplanner_selected_note_id', newNote._id);
       setActiveSubTab('edit');
     } catch (err: any) {
       showErrorAlert(err.message || 'Failed to create note');
@@ -218,6 +248,7 @@ export const NotesPage: React.FC = () => {
           await notesApi.deleteNote(note._id);
           if (selectedNote?._id === note._id) {
             setSelectedNote(null);
+            localStorage.removeItem('devplanner_selected_note_id');
           }
           await loadNotes(true);
         } catch (err: any) {
@@ -226,9 +257,6 @@ export const NotesPage: React.FC = () => {
       }
     });
   };
-
-  // Debounced auto-save or simple saving on blur/change
-  const saveTimeoutRef = useRef<any>(null);
 
   const handleUpdateNote = (fields: Partial<Note>) => {
     if (!selectedNote) return;
@@ -240,28 +268,49 @@ export const NotesPage: React.FC = () => {
     // Update notes array locally to prevent list flicker
     setNotes(prev => prev.map(n => n._id === selectedNote._id ? { ...n, ...fields } : n));
 
-    // Debounce API save call by 500ms
-    if (saveTimeoutRef.current) {
-      clearTimeout(saveTimeoutRef.current);
+    // Save locally
+    if (fields.content !== undefined) {
+      localStorage.setItem(`devplanner_unsaved_content_${selectedNote._id}`, fields.content);
     }
-
-    saveTimeoutRef.current = setTimeout(async () => {
-      try {
-        await notesApi.updateNote(selectedNote._id, {
-          title: updatedNote.title,
-          content: updatedNote.content,
-          category_id: updatedNote.category_id
-        });
-      } catch (err: any) {
-        console.error('Failed to auto-save note details:', err);
-      }
-    }, 500);
+    if (fields.title !== undefined) {
+      localStorage.setItem(`devplanner_unsaved_title_${selectedNote._id}`, fields.title);
+    }
   };
+
+  const handleSaveNote = async () => {
+    if (!selectedNote) return;
+    setSavingNote(true);
+    try {
+      const localContent = localStorage.getItem(`devplanner_unsaved_content_${selectedNote._id}`) ?? selectedNote.content;
+      const localTitle = localStorage.getItem(`devplanner_unsaved_title_${selectedNote._id}`) ?? selectedNote.title;
+
+      await notesApi.updateNote(selectedNote._id, {
+        title: localTitle,
+        content: localContent,
+        category_id: selectedNote.category_id
+      });
+
+      // Clear local unsaved changes
+      localStorage.removeItem(`devplanner_unsaved_content_${selectedNote._id}`);
+      localStorage.removeItem(`devplanner_unsaved_title_${selectedNote._id}`);
+
+      await loadNotes(true);
+    } catch (err: any) {
+      showErrorAlert(err.message || 'Failed to save note');
+    } finally {
+      setSavingNote(false);
+    }
+  };
+
+  const hasUnsavedChanges = selectedNote ? (
+    localStorage.getItem(`devplanner_unsaved_content_${selectedNote._id}`) !== null ||
+    localStorage.getItem(`devplanner_unsaved_title_${selectedNote._id}`) !== null
+  ) : false;
 
   const handleCopyNoteContent = () => {
     if (!selectedNote) return;
     navigator.clipboard.writeText(selectedNote.content);
-    showInfoAlert('Markdown text successfully copied to clipboard!');
+    showToast('Markdown copied to clipboard!');
   };
 
   // A premium regex markdown parser
@@ -313,10 +362,10 @@ export const NotesPage: React.FC = () => {
   };
 
   return (
-    <div className="flex gap-6 h-full min-h-0 animate-fade-in w-full">
+    <div className="flex h-full min-h-0 animate-fade-in w-full">
       
       {/* 1. Left Sidebar: Category Folders */}
-      <div className={`flex flex-col bg-white border border-slate-200 rounded-2xl p-4 shadow-sm h-full min-h-0 transition-all duration-300 overflow-hidden shrink-0 ${isFoldersSidebarOpen ? 'w-64 opacity-100' : 'w-0 opacity-0 p-0 border-transparent border-0'}`}>
+      <div className={`flex flex-col bg-white shadow-sm h-full min-h-0 transition-all duration-300 overflow-hidden shrink-0 ${isFoldersSidebarOpen ? 'w-64 opacity-100 mr-6 p-4 border border-slate-200 rounded-2xl' : 'w-0 opacity-0 p-0 border-0 mr-0'}`}>
         <div className="flex items-center justify-between pb-3 mb-3 border-b border-slate-100 shrink-0">
           <h3 className="text-sm font-bold text-slate-800 uppercase tracking-wider pl-1">Folders</h3>
           <button
@@ -343,21 +392,22 @@ export const NotesPage: React.FC = () => {
                 key={cat._id}
                 onClick={() => {
                   setSelectedCat(cat);
+                  localStorage.setItem('devplanner_selected_note_category_id', cat._id);
                   setSearchQuery('');
                 }}
                 className={`group flex items-center justify-between px-3 py-2.5 rounded-xl cursor-pointer transition-all duration-150 select-none ${
                   selectedCat?._id === cat._id
                     ? 'bg-slate-50 border border-slate-200 font-semibold text-slate-800'
-                    : 'text-slate-600 hover:bg-slate-50/50 border border-transparent'
+                    : 'text-slate-650 hover:bg-slate-50/50 border border-transparent'
                 }`}
               >
-                <div className="flex items-center gap-2.5 min-w-0">
+                <div className="flex items-start gap-2.5 min-w-0 flex-1">
                   {selectedCat?._id === cat._id ? (
-                    <FolderOpen size={16} className="text-primary-500 shrink-0" />
+                    <FolderOpen size={16} className="text-primary-550 shrink-0 mt-0.5" />
                   ) : (
-                    <Folder size={16} className="text-slate-450 shrink-0" />
+                    <Folder size={16} className="text-slate-450 shrink-0 mt-0.5" />
                   )}
-                  <span className="truncate text-sm">{cat.name}</span>
+                  <span className="text-sm break-words flex-1">{cat.name}</span>
                 </div>
 
                 <div className="opacity-0 group-hover:opacity-100 flex items-center gap-1.5 transition-opacity shrink-0 ml-1">
@@ -383,7 +433,7 @@ export const NotesPage: React.FC = () => {
       </div>
 
       {/* 2. Middle Panel: Note Titles & Search */}
-      <div className={`flex flex-col bg-white border border-slate-200 rounded-2xl p-4 shadow-sm h-full min-h-0 transition-all duration-300 overflow-hidden shrink-0 ${isNotesSidebarOpen ? 'w-64 opacity-100' : 'w-0 opacity-0 p-0 border-transparent border-0'}`}>
+      <div className={`flex flex-col bg-white shadow-sm h-full min-h-0 transition-all duration-300 overflow-hidden shrink-0 ${isNotesSidebarOpen ? 'w-64 opacity-100 mr-6 p-4 border border-slate-200 rounded-2xl' : 'w-0 opacity-0 p-0 border-0 mr-0'}`}>
         <div className="flex items-center justify-between pb-3 mb-3 border-b border-slate-100 shrink-0">
           <h3 className="text-sm font-bold text-slate-800 uppercase tracking-wider pl-1">Notes</h3>
           {selectedCat && (
@@ -448,7 +498,15 @@ export const NotesPage: React.FC = () => {
                   <div
                     key={note._id}
                     onClick={() => {
-                      setSelectedNote(note);
+                      const localContent = localStorage.getItem(`devplanner_unsaved_content_${note._id}`);
+                      const localTitle = localStorage.getItem(`devplanner_unsaved_title_${note._id}`);
+                      const mergedNote = {
+                        ...note,
+                        title: localTitle ?? note.title,
+                        content: localContent ?? note.content
+                      };
+                      setSelectedNote(mergedNote);
+                      localStorage.setItem('devplanner_selected_note_id', note._id);
                       setActiveSubTab('edit');
                     }}
                     className={`group flex items-center justify-between px-3 py-2.5 rounded-xl cursor-pointer transition-all duration-150 select-none ${
@@ -457,9 +515,9 @@ export const NotesPage: React.FC = () => {
                         : 'text-slate-600 hover:bg-slate-50/50 border border-transparent'
                     }`}
                   >
-                    <div className="flex items-center gap-2 min-w-0">
-                      <BookOpen size={14} className={selectedNote?._id === note._id ? 'text-primary-500' : 'text-slate-400'} />
-                      <span className="truncate text-xs">{note.title}</span>
+                    <div className="flex items-start gap-2 min-w-0 flex-1">
+                      <BookOpen size={14} className={`${selectedNote?._id === note._id ? 'text-primary-500' : 'text-slate-400'} shrink-0 mt-0.5`} />
+                      <span className="text-xs break-words flex-1">{note.title}</span>
                     </div>
                     <button
                       onClick={(e) => handleDeleteNote(e, note)}
@@ -537,6 +595,22 @@ export const NotesPage: React.FC = () => {
               >
                 <Copy size={12} />
                 <span>Copy</span>
+              </button>
+
+              {/* Save button */}
+              <button
+                type="button"
+                onClick={handleSaveNote}
+                disabled={savingNote}
+                className={`flex items-center gap-1.5 px-3 py-1.5 border rounded-xl text-[11px] font-bold transition-all cursor-pointer shadow-sm ${
+                  hasUnsavedChanges 
+                    ? 'bg-primary-600 border-primary-600 hover:bg-primary-700 text-white' 
+                    : 'bg-slate-50 border-slate-200 text-slate-400 hover:text-slate-500'
+                }`}
+                title={hasUnsavedChanges ? "Save changes to database" : "No unsaved changes"}
+              >
+                {savingNote ? <Loader2 size={12} className="animate-spin" /> : <Save size={12} />}
+                <span>{hasUnsavedChanges ? 'Save *' : 'Saved'}</span>
               </button>
 
               {/* Subtab Selectors */}
@@ -655,6 +729,14 @@ export const NotesPage: React.FC = () => {
         }}
         onCancel={() => setConfirmDialog(prev => ({ ...prev, isOpen: false }))}
       />
+
+      {/* Toast Notification */}
+      {toastMessage && (
+        <div className="fixed bottom-6 right-6 bg-slate-900 text-slate-100 px-4 py-2.5 rounded-xl shadow-lg flex items-center gap-2 text-xs font-semibold animate-fade-in z-50 border border-slate-800 select-none">
+          <FileText size={14} className="text-primary-400" />
+          <span>{toastMessage}</span>
+        </div>
+      )}
     </div>
   );
 };

@@ -86,20 +86,22 @@ export const CalendarPage: React.FC = () => {
   const monthName = currentDate.toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
 
   // Get status class for background grid highlights
-  const getHighlightClass = (status: DayStatus | undefined) => {
-    if (!status) return 'bg-white hover:bg-slate-50 border-slate-100 text-slate-850';
-    
-    switch (status) {
-      case 'completed':
-        return 'bg-emerald-50/50 hover:bg-emerald-50 border-emerald-200 text-emerald-800';
-      case 'pending':
-        return 'bg-red-50/50 hover:bg-red-50 border-red-200 text-red-800';
-      case 'mixed':
-        return 'bg-amber-50/50 hover:bg-amber-50 border-amber-250 text-amber-800';
-      case 'none':
-      default:
-        return 'bg-white hover:bg-slate-50 border-slate-100 text-slate-850';
+  const getHighlightClass = (status: DayStatus | undefined, isWeekend: boolean) => {
+    if (status && status !== 'none') {
+      switch (status) {
+        case 'completed':
+          return 'bg-emerald-50/50 hover:bg-emerald-50 border-emerald-250 text-emerald-800';
+        case 'pending':
+          return 'bg-red-50/50 hover:bg-red-50 border-red-250 text-red-800';
+        case 'mixed':
+          return 'bg-amber-50/50 hover:bg-amber-50 border-amber-250 text-amber-800';
+      }
     }
+    
+    if (isWeekend) {
+      return 'bg-slate-50/80 hover:bg-slate-100/80 border-dashed border-slate-200/90 text-slate-450';
+    }
+    return 'bg-white hover:bg-slate-50 border-slate-100 text-slate-850';
   };
 
   // Status Badge dot representation
@@ -121,67 +123,74 @@ export const CalendarPage: React.FC = () => {
   const todayDateStr = new Date().toLocaleDateString('en-CA');
 
   return (
-    <div className="space-y-6">
-      {/* Calendar Header Card */}
-      <div className="bg-white border border-slate-200 rounded-2xl p-6 shadow-sm flex flex-col sm:flex-row items-center justify-between gap-4">
-        <div className="flex items-center gap-3">
-          <div className="p-2.5 bg-primary-50 text-primary-600 rounded-xl">
-            <Calendar size={22} />
+    <div className="flex gap-6 h-full min-h-0 w-full animate-fade-in">
+      {/* Left Column: Details (30%) */}
+      <div className="w-[30%] flex flex-col gap-6 shrink-0">
+        {/* Calendar Header Card */}
+        <div className="bg-white border border-slate-200 rounded-2xl p-6 shadow-sm flex flex-col gap-4">
+          <div className="flex items-center gap-3">
+            <div className="p-2.5 bg-primary-50 text-primary-600 rounded-xl">
+              <Calendar size={22} />
+            </div>
+            <div>
+              <h2 className="text-xl font-bold text-slate-800">{monthName}</h2>
+              <p className="text-xs text-slate-500">Plan and manage task logs scheduled across days.</p>
+            </div>
           </div>
-          <div>
-            <h2 className="text-xl font-bold text-slate-800">{monthName}</h2>
-            <p className="text-xs text-slate-500">Plan and manage task logs scheduled across days.</p>
+
+          <div className="flex items-center gap-2 mt-2">
+            {/* Navigation */}
+            <div className="flex items-center border border-slate-200 rounded-xl overflow-hidden bg-white shadow-sm w-full">
+              <button
+                onClick={handlePrevMonth}
+                className="flex-1 p-2.5 hover:bg-slate-50 border-r border-slate-200 text-slate-650 transition-colors flex justify-center cursor-pointer"
+              >
+                <ChevronLeft size={16} />
+              </button>
+              <button
+                onClick={handleJumpToToday}
+                className="flex-1 px-4 py-2.5 hover:bg-slate-55 text-xs font-semibold text-slate-700 transition-colors text-center cursor-pointer"
+              >
+                Today
+              </button>
+              <button
+                onClick={handleNextMonth}
+                className="flex-1 p-2.5 hover:bg-slate-50 border-l border-slate-200 text-slate-650 transition-colors flex justify-center cursor-pointer"
+              >
+                <ChevronRight size={16} />
+              </button>
+            </div>
           </div>
         </div>
 
-        <div className="flex items-center gap-2">
-          {/* Navigation */}
-          <div className="flex items-center border border-slate-200 rounded-xl overflow-hidden bg-white shadow-sm">
-            <button
-              onClick={handlePrevMonth}
-              className="p-2 hover:bg-slate-50 border-r border-slate-200 text-slate-600 transition-colors"
-            >
-              <ChevronLeft size={16} />
-            </button>
-            <button
-              onClick={handleJumpToToday}
-              className="px-4 py-2 hover:bg-slate-50 text-xs font-semibold text-slate-700 transition-colors"
-            >
-              Today
-            </button>
-            <button
-              onClick={handleNextMonth}
-              className="p-2 hover:bg-slate-50 border-l border-slate-200 text-slate-600 transition-colors"
-            >
-              <ChevronRight size={16} />
-            </button>
+        {/* Legend Card */}
+        <div className="bg-white border border-slate-200 rounded-2xl p-6 shadow-sm flex flex-col gap-4 text-xs text-slate-500 font-semibold uppercase tracking-wider">
+          <span className="text-slate-400 border-b border-slate-100 pb-2">Indicators</span>
+          <div className="flex items-center gap-2.5">
+            <span className="w-3 h-3 bg-emerald-500 rounded-full" />
+            <span>All Completed</span>
+          </div>
+          <div className="flex items-center gap-2.5">
+            <span className="w-3 h-3 bg-red-500 rounded-full" />
+            <span>Pending Backlog</span>
+          </div>
+          <div className="flex items-center gap-2.5">
+            <span className="w-3 h-3 bg-amber-500 rounded-full" />
+            <span>Mixed Status</span>
+          </div>
+          <div className="flex items-center gap-2.5">
+            <span className="w-3 h-3 border border-slate-200 bg-white rounded-full" />
+            <span>No Tasks</span>
+          </div>
+          <div className="flex items-center gap-2.5 pt-2 border-t border-slate-100 text-[10px] text-slate-400">
+            <div className="w-6 h-3 bg-slate-50 border border-dashed border-slate-200 rounded shrink-0" />
+            <span>Weekend (Leave / Off)</span>
           </div>
         </div>
       </div>
 
-      {/* Legend Card */}
-      <div className="bg-white border border-slate-250 rounded-xl px-5 py-3 shadow-sm flex flex-wrap items-center gap-6 text-xs text-slate-500 font-semibold uppercase tracking-wider">
-        <span className="text-slate-400">Indicators:</span>
-        <div className="flex items-center gap-1.5">
-          <span className="w-2.5 h-2.5 bg-emerald-500 rounded-full" />
-          <span>All Completed</span>
-        </div>
-        <div className="flex items-center gap-1.5">
-          <span className="w-2.5 h-2.5 bg-red-500 rounded-full" />
-          <span>Pending Backlog</span>
-        </div>
-        <div className="flex items-center gap-1.5">
-          <span className="w-2.5 h-2.5 bg-amber-50 rounded-full" />
-          <span>Mixed Status</span>
-        </div>
-        <div className="flex items-center gap-1.5">
-          <span className="w-2.5 h-2.5 border border-slate-200 bg-white rounded-full" />
-          <span>No Tasks</span>
-        </div>
-      </div>
-
-      {/* Calendar Grid Container */}
-      <div className="bg-white border border-slate-200 rounded-2xl shadow-sm overflow-hidden p-6 relative">
+      {/* Right Column: Calendar Grid Container (70%) */}
+      <div className="w-[70%] flex-1 bg-white border border-slate-200 rounded-2xl shadow-sm overflow-hidden p-6 relative flex flex-col h-full min-h-0">
         {loading && (
           <div className="absolute inset-0 bg-white/70 backdrop-blur-[1px] flex items-center justify-center z-10">
             <Loader2 className="w-8 h-8 animate-spin text-primary-500" />
@@ -197,37 +206,50 @@ export const CalendarPage: React.FC = () => {
 
         {/* Days Names Header */}
         <div className="grid grid-cols-7 gap-3 mb-3 text-center">
-          {['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].map(day => (
-            <div key={day} className="text-xs font-bold text-slate-400 uppercase tracking-wider py-1">
+          {['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].map((day, idx) => (
+            <div 
+              key={day} 
+              className={`text-xs font-bold uppercase tracking-wider py-1 ${
+                idx === 0 || idx === 6 ? 'text-slate-405' : 'text-slate-400'
+              }`}
+            >
               {day}
             </div>
           ))}
         </div>
 
         {/* Calendar Cells Grid */}
-        <div className="grid grid-cols-7 gap-3">
+        <div className="grid grid-cols-7 auto-rows-fr gap-3 flex-1 min-h-0">
           {daysGrid.map((cell, idx) => {
             const status = cell.dateStr ? overview[cell.dateStr] : undefined;
             const isToday = cell.dateStr === todayDateStr;
+            const isWeekend = idx % 7 === 0 || idx % 7 === 6;
 
             if (cell.day === null) {
-              return <div key={`empty-${idx}`} className="aspect-square bg-slate-50/20 border border-transparent rounded-2xl" />;
+              return <div key={`empty-${idx}`} className={`bg-slate-50/20 border border-transparent rounded-2xl h-full w-full ${isWeekend ? 'bg-slate-100/10' : ''}`} />;
             }
 
             return (
               <button
                 key={cell.dateStr}
                 onClick={() => cell.dateStr && handleSelectDay(cell.dateStr)}
-                className={`aspect-square border p-3 flex flex-col justify-between items-start rounded-2xl transition-all duration-150 relative cursor-pointer group ${getHighlightClass(status)} ${
+                className={`border p-3 flex flex-col justify-between items-start rounded-2xl transition-all duration-150 relative cursor-pointer group w-full h-full ${getHighlightClass(status, isWeekend)} ${
                   isToday ? 'ring-2 ring-primary-550 ring-offset-2' : ''
                 }`}
               >
-                {/* Day number */}
-                <span className={`text-sm font-semibold select-none ${
-                  isToday ? 'text-primary-600 font-extrabold' : 'text-slate-800'
-                }`}>
-                  {cell.day}
-                </span>
+                {/* Day number & leave tag */}
+                <div className="flex items-center justify-between w-full">
+                  <span className={`text-sm font-semibold select-none ${
+                    isToday ? 'text-primary-600 font-extrabold' : isWeekend ? 'text-slate-400' : 'text-slate-800'
+                  }`}>
+                    {cell.day}
+                  </span>
+                  {isWeekend && (
+                    <span className="text-[9px] font-bold uppercase tracking-wider text-slate-400 bg-slate-100 border border-slate-200/60 px-1 py-0.5 rounded select-none scale-90 -translate-y-0.5">
+                      Off
+                    </span>
+                  )}
+                </div>
 
                 {/* Bottom stats indicators inside cell */}
                 <div className="flex items-center gap-1 mt-auto w-full justify-between">

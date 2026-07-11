@@ -261,7 +261,7 @@ const App: React.FC = () => {
       )}
 
       {/* 3. Main Dashboard Body Workspace */}
-      <main className={`flex-1 w-full px-8 py-6 min-h-0 flex flex-col ${activeTab === 'notes' || activeTab === 'links' ? 'overflow-hidden' : 'overflow-y-auto'}`}>
+      <main className={`flex-1 w-full px-8 py-6 min-h-0 flex flex-col ${activeTab === 'notes' || activeTab === 'links' || activeTab === 'calendar' ? 'overflow-hidden' : 'overflow-y-auto'}`}>
         {renderTabContent()}
       </main>
 
