@@ -266,7 +266,7 @@ export const DashboardPage: React.FC = () => {
         {/* Total Tasks Box */}
         <div className="bg-white border border-slate-200 rounded-2xl p-6 shadow-sm flex items-center justify-between">
           <div>
-            <span className="text-sm font-semibold text-slate-500 font-medium">Total Tasks Today</span>
+            <span className="text-sm font-semibold text-slate-500 font-medium">Total Tasks</span>
             <h2 className="text-4xl font-extrabold text-slate-850 mt-2">{stats?.total_tasks ?? 0}</h2>
           </div>
           <div className="p-3 bg-blue-50 text-blue-600 rounded-2xl">

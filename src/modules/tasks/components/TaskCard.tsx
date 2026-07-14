@@ -255,31 +255,35 @@ export const TaskCard: React.FC<TaskCardProps> = ({
 
           {/* Add Subtask Input Form */}
           {isAddingSubtask ? (
-            <form onSubmit={handleSubtaskSubmit} className="flex items-center gap-2 mt-2">
+            <form onSubmit={handleSubtaskSubmit} className="flex flex-col gap-2 w-[70%] mt-2">
               <input
                 type="text"
                 placeholder="Enter subtask title..."
                 value={newSubtaskTitle}
                 onChange={(e) => setNewSubtaskTitle(e.target.value)}
-                className="text-sm px-3 py-1.5 border border-slate-200 rounded-lg focus:outline-none focus:ring-1 focus:ring-primary-500 bg-white flex-1 max-w-md"
+                className="text-sm px-3 py-1.5 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-primary-500/20 focus:border-primary-500 bg-white w-full"
                 autoFocus
               />
-              <button
-                type="submit"
-                className="px-3 py-1.5 bg-primary-500 text-white rounded-lg text-sm font-semibold hover:bg-primary-600 transition-colors shadow-sm"
-              >
-                Add
-              </button>
-              <button
-                type="button"
-                onClick={() => {
-                  setIsAddingSubtask(false);
-                  setNewSubtaskTitle('');
-                }}
-                className="px-3 py-1.5 border border-slate-200 text-slate-600 rounded-lg text-sm font-medium hover:bg-slate-50 transition-colors"
-              >
-                Cancel
-              </button>
+              <div className="flex items-center gap-2 select-none">
+                <button
+                  type="submit"
+                  className="flex items-center gap-1 px-2.5 py-1 bg-primary-600 hover:bg-primary-700 text-white rounded-lg text-[11px] font-bold shadow-sm transition-colors cursor-pointer"
+                >
+                  <Check size={11} />
+                  <span>Add</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setIsAddingSubtask(false);
+                    setNewSubtaskTitle('');
+                  }}
+                  className="flex items-center gap-1 px-2.5 py-1 bg-slate-100 hover:bg-slate-200 text-slate-650 rounded-lg text-[11px] font-bold transition-colors cursor-pointer"
+                >
+                  <X size={11} />
+                  <span>Cancel</span>
+                </button>
+              </div>
             </form>
           ) : (
             <button
