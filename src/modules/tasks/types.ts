@@ -11,6 +11,7 @@ export interface Task {
   description?: string;
   date: string; // YYYY-MM-DD
   is_completed: boolean;
+  completed_at?: string;
   origin_task_id: string | null;
   subtasks: Subtask[];
   created_at: string;

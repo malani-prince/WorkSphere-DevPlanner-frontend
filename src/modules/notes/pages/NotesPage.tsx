@@ -14,7 +14,8 @@ import {
   ChevronDown,
   Loader2,
   Copy,
-  Save
+  Save,
+  Download
 } from 'lucide-react';
 import { notesApi } from '../api';
 import type { NoteCategory, Note } from '../types';
@@ -313,6 +314,68 @@ export const NotesPage: React.FC = () => {
     showToast('Markdown copied to clipboard!');
   };
 
+  // Export all notes in the selected folder as a single README.md
+  const handleExportFolderReadme = async () => {
+    if (!selectedCat) return;
+    try {
+      // Fetch all notes in the folder (without search filter)
+      const allNotes = await notesApi.getNotes(selectedCat._id, { sort_by: 'alphabetical' });
+      if (allNotes.length === 0) {
+        showToast('No notes to export in this folder.');
+        return;
+      }
+
+      const now = new Date();
+      const dateStr = now.toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' });
+
+      // Build the README markdown
+      const lines: string[] = [
+        `# ${selectedCat.name}`,
+        ``,
+        `> Exported from WorkSphere DevPlanner on ${dateStr}`,
+        ``,
+        `---`,
+        ``,
+        `## Table of Contents`,
+        ``,
+        ...allNotes.map((n, i) => `${i + 1}. [${n.title}](#${n.title.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '')})`),
+        ``,
+        `---`,
+        ``,
+      ];
+
+      allNotes.forEach((note, i) => {
+        // Use local unsaved draft if available, otherwise use server content
+        const content = localStorage.getItem(`devplanner_unsaved_content_${note._id}`) ?? note.content;
+        const title = localStorage.getItem(`devplanner_unsaved_title_${note._id}`) ?? note.title;
+
+        lines.push(`## ${title}`);
+        lines.push(``);
+        lines.push(content);
+        lines.push(``);
+        if (i < allNotes.length - 1) {
+          lines.push(`---`);
+          lines.push(``);
+        }
+      });
+
+      const readmeContent = lines.join('\n');
+
+      // Trigger browser download
+      const blob = new Blob([readmeContent], { type: 'text/markdown;charset=utf-8' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `README_${selectedCat.name.replace(/[^a-z0-9]/gi, '_')}.md`;
+      a.click();
+      URL.revokeObjectURL(url);
+
+      showToast(`Exported ${allNotes.length} note(s) as README.md`);
+    } catch (err: any) {
+      showErrorAlert(err.message || 'Failed to export notes');
+    }
+  };
+
   // A premium regex markdown parser
   const renderMarkdown = (text: string) => {
     if (!text) return '<p class="text-sm italic text-slate-400">No content provided.</p>';
@@ -437,13 +500,22 @@ export const NotesPage: React.FC = () => {
         <div className="flex items-center justify-between pb-3 mb-3 border-b border-slate-100 shrink-0">
           <h3 className="text-sm font-bold text-slate-800 uppercase tracking-wider pl-1">Notes</h3>
           {selectedCat && (
-            <button
-              onClick={handleCreateNote}
-              className="p-1 hover:bg-primary-50 rounded-lg text-primary-600 transition-colors cursor-pointer"
-              title="Add Markdown Note"
-            >
-              <Plus size={18} />
-            </button>
+            <div className="flex items-center gap-1">
+              <button
+                onClick={handleExportFolderReadme}
+                className="p-1 hover:bg-emerald-50 rounded-lg text-slate-400 hover:text-emerald-600 transition-colors cursor-pointer"
+                title={`Download all notes in "${selectedCat.name}" as README.md`}
+              >
+                <Download size={15} />
+              </button>
+              <button
+                onClick={handleCreateNote}
+                className="p-1 hover:bg-primary-50 rounded-lg text-primary-600 transition-colors cursor-pointer"
+                title="Add Markdown Note"
+              >
+                <Plus size={18} />
+              </button>
+            </div>
           )}
         </div>
 

@@ -72,8 +72,8 @@ export const tasksApi = {
     return apiClient.get('/dashboard/stats', { params: { date } });
   },
 
-  // Run catchup task migration job
-  runMigration: (date?: string): Promise<Array<{ status: string; date: string; migrated_count: number }>> => {
-    return apiClient.post('/migration/run', null, { params: { date } });
+  // Get tasks completed on a specific date
+  getTasksCompletedOnDate: (date: string): Promise<Task[]> => {
+    return apiClient.get(`/tasks/completed-on/${date}`);
   },
 };

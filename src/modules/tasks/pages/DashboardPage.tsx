@@ -34,6 +34,7 @@ const TaskSkeleton: React.FC = () => (
 
 export const DashboardPage: React.FC = () => {
   const [tasks, setTasks] = useState<Task[]>([]);
+  const [tasksCompletedToday, setTasksCompletedToday] = useState<Task[]>([]);
   const [stats, setStats] = useState<DashboardStats | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -106,6 +107,10 @@ export const DashboardPage: React.FC = () => {
 
       const taskList = await tasksApi.getTasks(params);
       setTasks(taskList);
+
+      // Fetch tasks completed today (regardless of scheduled date)
+      const completedTodayList = await tasksApi.getTasksCompletedOnDate(todayStr);
+      setTasksCompletedToday(completedTodayList);
     } catch (err: any) {
       console.error(err);
       setError(err.message || 'Failed to load task dashboard');
@@ -257,6 +262,14 @@ export const DashboardPage: React.FC = () => {
   const pendingTasks = tasks.filter(t => !t.is_completed);
   const completedTasks = tasks.filter(t => t.is_completed);
 
+  // Merge tasks completed today (regardless of scheduled date) and tasks scheduled for today that are completed
+  const mergedCompletedTasks = [...completedTasks];
+  tasksCompletedToday.forEach(t => {
+    if (!mergedCompletedTasks.some(mt => mt._id === t._id)) {
+      mergedCompletedTasks.push(t);
+    }
+  });
+
   return (
     <div className="space-y-6">
 
@@ -363,15 +376,6 @@ export const DashboardPage: React.FC = () => {
               </div>
             </div>
 
-            {/* Hide/Show Completed Tasks Toggle */}
-            <button
-              type="button"
-              onClick={() => setShowCompleted(!showCompleted)}
-              className="flex items-center gap-1.5 px-3 py-2 border border-slate-200 hover:bg-slate-55 text-slate-600 rounded-xl text-xs font-semibold transition-colors duration-150 cursor-pointer select-none shrink-0"
-            >
-              {showCompleted ? <EyeOff size={14} /> : <Eye size={14} />}
-              <span>{showCompleted ? 'Hide Completed' : 'Show Completed'}</span>
-            </button>
 
             {/* Create Task Button */}
             <button
@@ -436,20 +440,28 @@ export const DashboardPage: React.FC = () => {
               )}
 
               {/* Separator line between active & completed tasks */}
-              {pendingTasks.length > 0 && completedTasks.length > 0 && showCompleted && (
+              {pendingTasks.length > 0 && mergedCompletedTasks.length > 0 && showCompleted && (
                 <hr className="border-slate-100" />
               )}
 
               {/* Completed Tasks */}
-              {completedTasks.length > 0 && (
+              {mergedCompletedTasks.length > 0 && (
                 <div className="space-y-3">
                   <div className="flex items-center justify-between pl-1">
-                    <h4 className="text-xs font-bold text-slate-400 uppercase tracking-wider">Completed Tasks ({completedTasks.length})</h4>
+                    <h4 className="text-xs font-bold text-slate-400 uppercase tracking-wider">Completed Tasks ({mergedCompletedTasks.length})</h4>
+                    <button
+                      type="button"
+                      onClick={() => setShowCompleted(!showCompleted)}
+                      className="flex items-center gap-1.5 px-3 py-1.5 border border-slate-200 hover:bg-slate-50 text-slate-500 hover:text-slate-700 rounded-lg text-[11px] font-semibold transition-all duration-150 cursor-pointer select-none"
+                    >
+                      {showCompleted ? <EyeOff size={12} /> : <Eye size={12} />}
+                      <span>{showCompleted ? 'Hide' : 'Show'}</span>
+                    </button>
                   </div>
                   
                   {showCompleted && (
                     <div className="grid grid-cols-1 gap-4 opacity-80 animate-fade-in">
-                      {completedTasks.map(task => (
+                      {mergedCompletedTasks.map(task => (
                         <TaskCard
                           key={task._id}
                           task={task}
@@ -466,6 +478,7 @@ export const DashboardPage: React.FC = () => {
                   )}
                 </div>
               )}
+
             </div>
           )}
         </div>

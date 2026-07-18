@@ -4,8 +4,6 @@ import {
   Calendar as CalendarIcon, 
   Bookmark, 
   Clock, 
-  CheckCircle,
-  AlertCircle,
   Settings as SettingsIcon,
   FileText
 } from 'lucide-react';
@@ -14,7 +12,6 @@ import { CalendarPage } from './modules/calendar/pages/CalendarPage';
 import { LinkManagerPage } from './modules/links/pages/LinkManagerPage';
 import { SettingsPage } from './modules/tasks/pages/SettingsPage';
 import { NotesPage } from './modules/notes/pages/NotesPage';
-import { tasksApi } from './modules/tasks/api';
 
 type TabType = 'tasks' | 'calendar' | 'links' | 'notes' | 'settings';
 
@@ -32,13 +29,7 @@ const App: React.FC = () => {
     localStorage.setItem('devplanner_active_tab', tab);
   };
   
-  // Migration Toast / Status State
-  const [migrationStatus, setMigrationStatus] = useState<{
-    running: boolean;
-    success?: boolean;
-    migratedCount?: number;
-    message?: string;
-  }>({ running: true });
+
 
   const [localTime, setLocalTime] = useState(new Date());
 
@@ -48,58 +39,7 @@ const App: React.FC = () => {
     return () => clearInterval(timer);
   }, []);
 
-  // Run Catchup Migration on App Load (daily rollover requirement)
-  const triggerDailyMigration = async () => {
-    const todayStr = new Date().toLocaleDateString('en-CA'); // YYYY-MM-DD local format
-    
-    // Check if automatic migration is disabled by user in settings
-    const isAutoMigrationEnabled = localStorage.getItem('devplanner_auto_migration') !== 'false';
-    if (!isAutoMigrationEnabled) {
-      setMigrationStatus({
-        running: false,
-        success: true,
-        message: 'Daily catch-up migration skipped (disabled in Settings).'
-      });
-      setTimeout(() => {
-        setMigrationStatus(prev => ({ ...prev, message: undefined }));
-      }, 6000);
-      return;
-    }
 
-    try {
-      setMigrationStatus({ running: true });
-      const results = await tasksApi.runMigration(todayStr);
-      
-      // Calculate total migrated tasks
-      const totalMigrated = results.reduce((acc, step) => acc + (step.migrated_count || 0), 0);
-      
-      setMigrationStatus({
-        running: false,
-        success: true,
-        migratedCount: totalMigrated,
-        message: totalMigrated > 0 
-          ? `Catch-up migration completed! Copied ${totalMigrated} pending task(s) forward.`
-          : 'Catch-up migration completed! Backlog is up to date.'
-      });
-
-      // Clear the migration message banner after 8 seconds
-      setTimeout(() => {
-        setMigrationStatus(prev => ({ ...prev, message: undefined }));
-      }, 8000);
-
-    } catch (err: any) {
-      console.error('Migration catch-up failed:', err);
-      setMigrationStatus({
-        running: false,
-        success: false,
-        message: `Daily catch-up migration failed: ${err.message || 'Server error'}`
-      });
-    }
-  };
-
-  useEffect(() => {
-    triggerDailyMigration();
-  }, []);
 
 
 
@@ -238,27 +178,7 @@ const App: React.FC = () => {
         </div>
       </header>
 
-      {/* 2. Catchup Notification Banner */}
-      {migrationStatus.message && (
-        <div className="bg-primary-50 border-b border-primary-100 py-3 px-6 animate-fade-in shrink-0">
-          <div className="w-full px-8 flex items-center justify-between gap-4 text-xs font-medium text-primary-850">
-            <div className="flex items-center gap-2">
-              {migrationStatus.success ? (
-                <CheckCircle size={15} className="text-emerald-500 shrink-0" />
-              ) : (
-                <AlertCircle size={15} className="text-red-500 shrink-0" />
-              )}
-              <span>{migrationStatus.message}</span>
-            </div>
-            <button 
-              onClick={() => setMigrationStatus(prev => ({ ...prev, message: undefined }))}
-              className="text-[10px] text-primary-400 hover:text-primary-600 font-bold uppercase"
-            >
-              Dismiss
-            </button>
-          </div>
-        </div>
-      )}
+
 
       {/* 3. Main Dashboard Body Workspace */}
       <main className={`flex-1 w-full px-8 py-6 min-h-0 flex flex-col ${activeTab === 'notes' || activeTab === 'links' || activeTab === 'calendar' ? 'overflow-hidden' : 'overflow-y-auto'}`}>
